@@ -63,41 +63,6 @@ class SwoleBot(object):
             last_event_id = registration.get("last_event_id")
         return queue_id, last_event_id
 
-    def parse_destination(self, content, msg, private): 
-        """
-        Parses and returns the stream and topic
-        If the message is private, stream and topic must be user specified
-        Otherwise, stream and topic can be taken from the msg metadata
-        """
-        if private:
-            stream = content[2].replace("_", " ")
-            topic = content[3].replace("_", " ")
-        else:
-            stream = msg["display_recipient"]
-            topic = msg["subject"]
-
-        return stream, topic
-
-    def is_swolebot_call(self, content, sender):
-        """
-        Verifies whether or not a given message is directed to SwoleBot
-        Raises a ValueError if no commands were given
-        """
-
-        # recursion is denied
-        if "swolebot" in sender.lower():
-            return False
-        if self.key_word in content[0].lower():
-            # call is "SwoleBot" with no following arguments
-            if len(content) == 1:
-                raise ValueError("You must specify a command when calling me.")
-            # call looks like "SwoleBot ..."
-            else:
-                return True
-        # SwoleBot was not referenced
-        else:
-            return False
-
     def send_private_message(self, to, content):
         """Minimal requirements for sending a private message"""
         self.client.send_message({
@@ -110,7 +75,7 @@ class SwoleBot(object):
         content = message['content']
         content = content.lower().split()
         private = message["type"] == "private"
-        if not private and self.key_word == content[0]:
+        if not private and self.key_word != content[0]:
             return None
         if private and (self.key_word != content[0]):
             command = content[0]
@@ -123,13 +88,17 @@ class SwoleBot(object):
         if command == "join":
             if sender not in self.subscribers:
                 self.subscribers.append(sender)
-            response = "You're gonna make all kinds of gains ... All kinds ..."
+                response = "You're gonna make all kinds of gains ... All kinds ..."
+            else:
+                response = "You already made a positive life choice!"
         elif command == 'leave':
             if sender in self.subscribers:
                 self.subscribers.remove(sender)
-            response = "Well, it was nice knowing you buddy.  Auf wiedersehen"
+                response = "Well, it was nice knowing you buddy.  Auf wiedersehen"
+            else:
+                response = "New phone who dis"
         else:
-            response = "What was that mate?  I didn't comprehend."
+            response = 'Please enter "swolebot join" to subscribe to me, or "swolebot leave" to unsubscribe'
         self.send_private_message(email, response)
 
     def send_reminder(self):
