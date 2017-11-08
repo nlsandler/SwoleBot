@@ -137,15 +137,20 @@ class SwoleBot(object):
             "type": "stream",
             "to": STREAM_NAME,
             "subject": "exercise",
-            "content": "It's time to exercise!"
+            "content": self.compose_message()
         })
+
+    def compose_message(self):
+        message = "It's time to exercise!!! 💪💪💪💪 " + ("@**%s** " * len(self.subscribers))
+        message = message % tuple(self.subscribers)
+        return message
 
     def main(self):
         """Write me"""
 
         # this both checks that SwoleBot is on, and will create
         # the entire database and its' columns if it doesn't exist
-        time_last_reminded = None
+        time_last_reminded = datetime.datetime(1970, 1, 1)
         queue_id = None
         while True:
             # queue_id resets every 15 minutes or so
@@ -172,11 +177,8 @@ class SwoleBot(object):
 
             current_time = datetime.datetime.now()
             current_hour = current_time.hour
-            if time_last_reminded:
-                time_elapsed = current_time - time_last_reminded
-            else:
-                time_elapsed = datetime.timedelta()
-            if 10 <= current_hour < 18 and time_elapsed >= datetime.timedelta(hours=1):    
+            time_elapsed = current_time - time_last_reminded
+            if 10 <= current_hour < 18 and time_elapsed >= datetime.timedelta(seconds=15):    
                 self.send_reminder()
                 time_last_reminded = current_time
             time.sleep(1)
