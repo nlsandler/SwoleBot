@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
 
 import zulip
 import dotenv
@@ -12,6 +13,15 @@ import time
 
 STREAM_NAME = 'bot-test'
 SUBSCRIBER_LIST = 'subscribers.txt'
+
+RESPONSES = {
+    "join_success": "You're gonna make all kinds of gains ... All kinds ...",
+    "leave_success": "Well, it was nice knowing you buddy.  Auf wiedersehen",
+    "already_joined": "You already made a positive life choice!",
+    "already_not_subscribed": "New phone who dis",
+    "help": 'Please enter "swolebot join" to subscribe to me, or "swolebot leave" to unsubscribe',
+    "reminder": "It's time to exercise!!! 💪💪💪💪 "
+}
 
 # TO DO:
 ## Pickle list of subscribers
@@ -129,18 +139,18 @@ class SwoleBot(object):
             if sender not in self.subscribers:
                 self.subscribers.append(sender)
                 self.save_subscribers()
-                response = "You're gonna make all kinds of gains ... All kinds ..."
+                response = RESPONSES["join_success"]
             else:
-                response = "You already made a positive life choice!"
+                response = RESPONSES["already_joined"]
         elif command == 'leave':
             if sender in self.subscribers:
                 self.subscribers.remove(sender)
                 self.save_subscribers()
-                response = "Well, it was nice knowing you buddy.  Auf wiedersehen"
+                response = RESPONSES["leave_success"]
             else:
-                response = "New phone who dis"
+                response = RESPONSES["already_not_subscribed"]
         else:
-            response = 'Please enter "swolebot join" to subscribe to me, or "swolebot leave" to unsubscribe'
+            response = RESPONSES["help"]
         self.send_private_message(email, response)
 
     def send_reminder(self):
@@ -160,7 +170,7 @@ class SwoleBot(object):
         Format exercise reminder message tagging all subscribers.
 
         """
-        message = "It's time to exercise!!! 💪💪💪💪 " + ("@**%s** " * len(self.subscribers))
+        message = RESPONSES["reminder"] + ("@**%s** " * len(self.subscribers))
         message = message % tuple(self.subscribers)
         return message
 
@@ -209,7 +219,7 @@ if __name__ == "__main__":
     zulip_username = os.environ["SWOLEBOT_USR"]
     zulip_api_key = os.environ["SWOLEBOT_API"]
     key_word = "SwoleBot"
-    subscribed_streams = ['bot-test']
+    subscribed_streams = [STREAM_NAME]
 
     new_bot = SwoleBot(zulip_username, zulip_api_key, key_word, subscribed_streams)
     new_bot.main()
