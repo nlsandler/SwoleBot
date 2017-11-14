@@ -10,17 +10,27 @@ import json
 import os
 import sys
 import time
+import argparse
 
 STREAM_NAME = 'bot-test'
 SUBSCRIBER_LIST = 'subscribers.txt'
+
+FORM_VIDEOS = {
+                'squat': 'https://www.youtube.com/watch?v=zoZWgTrZLd8',
+                'pushup': 'https://www.youtube.com/watch?v=eFOSh8vpd6I',
+                'plank': 'https://www.youtube.com/watch?v=6LqqeBtFn9M'
+}
 
 RESPONSES = {
     "join_success": "You're gonna make all kinds of gains ... All kinds ...",
     "leave_success": "Well, it was nice knowing you buddy.  Auf wiedersehen",
     "already_joined": "You already made a positive life choice!",
     "already_not_subscribed": "New phone who dis",
-    "help": 'Please enter "swolebot join" to subscribe to me, or "swolebot leave" to unsubscribe',
-    "reminder": "It's time to exercise!!! 💪💪💪💪 "
+    "help": ('Please enter "swolebot join" to subscribe to me, "swolebot leave" to unsubscribe,'
+            ' or "swolebot form [exercise]" to watch a video on proper form. Valid exercises are: plank, squat, pushup.'),
+    "reminder": "It's time to exercise!!! 💪💪💪💪 ",
+    "form": "Here you go. Exercise safely! ",
+    "form_help": "Exercise not recognized. Enter one of: squat, pushup, plank"
 }
 
 # TO DO:
@@ -28,7 +38,7 @@ RESPONSES = {
 ## Load upon SwoleBot initialization if present
 class SwoleBot(object):
 
-    def __init__(self, zulip_username, zulip_api_key, key_word, subscribed_streams=[]):
+    def __init__(self, zulip_username, zulip_api_key, key_word, subscribed_streams=[], reminder_interval=3600):
         """
         Parameters:
         -----------
@@ -50,6 +60,8 @@ class SwoleBot(object):
         self.client = zulip.Client(zulip_username, zulip_api_key, site="https://recurse.zulipchat.com/api")
         self.subscriptions = self.subscribe_to_streams()
         self.stream_names = []
+        self.time_last_reminded = datetime.datetime(1970, 1, 1)
+        self.reminder_interval = reminder_interval
         for stream in self.subscriptions:
             self.stream_names.append(stream["name"])
         self.load_subscribers()
@@ -112,6 +124,35 @@ class SwoleBot(object):
             "content": content
         })
 
+    def respond_join(self, sender):
+        if sender not in self.subscribers:
+            self.subscribers.append(sender)
+            self.save_subscribers()
+            response = RESPONSES["join_success"]
+        else:
+            response = RESPONSES["already_joined"]
+
+        return response
+
+    def respond_leave(self, sender):
+        if sender in self.subscribers:
+            self.subscribers.remove(sender)
+            self.save_subscribers()
+            response = RESPONSES["leave_success"]
+        else:
+            response = RESPONSES["already_not_subscribed"]
+
+        return response
+
+    def respond_form(self, exercise):
+        if exercise in FORM_VIDEOS:
+            response = RESPONSES["form"] + FORM_VIDEOS[exercise]
+        else:
+            response = RESPONSES["form_help"]
+
+        return response
+
+
     def respond(self, message):
         """
         Checks if message in private message or stream is valid SwoleBot command,
@@ -125,30 +166,30 @@ class SwoleBot(object):
         content = message['content']
         content = content.lower().split()
         private = message["type"] == "private"
+
         if not private and self.key_word != content[0]:
             return None
-        if private and (self.key_word != content[0]):
-            command = content[0]
+
+
+        if content[0] == self.key_word:
+            content = content[1:]
+
+        command = content[0]
+        if len(content) > 1:
+            command_arg = content[1]
         else:
-            command = content[1]
+            command_arg = None
+
         sender = message['sender_full_name']
         email = message["sender_email"]
         if 'SwoleBot' in sender:
             return None
         if command == "join":
-            if sender not in self.subscribers:
-                self.subscribers.append(sender)
-                self.save_subscribers()
-                response = RESPONSES["join_success"]
-            else:
-                response = RESPONSES["already_joined"]
+            response = self.respond_join(sender)
         elif command == 'leave':
-            if sender in self.subscribers:
-                self.subscribers.remove(sender)
-                self.save_subscribers()
-                response = RESPONSES["leave_success"]
-            else:
-                response = RESPONSES["already_not_subscribed"]
+            response = self.respond_leave(sender)
+        elif command == 'form':
+            response = self.respond_form(command_arg)
         else:
             response = RESPONSES["help"]
         self.send_private_message(email, response)
@@ -174,6 +215,15 @@ class SwoleBot(object):
         message = message % tuple(self.subscribers)
         return message
 
+    def is_reminder_time(self):
+        current_time = datetime.datetime.now()
+        current_hour = current_time.hour
+        time_elapsed = current_time - self.time_last_reminded
+        if 10 <= current_hour < 18 and time_elapsed >= datetime.timedelta(seconds=self.reminder_interval):
+            if current_time.weekday() < 5:   # only deliver reminders Mon-Fri 
+                return True
+        return False
+
     def main(self):
         """
         Searches subscribed streams and private messages for new subscriptions
@@ -181,7 +231,6 @@ class SwoleBot(object):
         every hour on the hour between 10am and 6pm Monday-Thursday.
 
         """
-        time_last_reminded = datetime.datetime(1970, 1, 1)
         queue_id = None
         while True:
             # queue_id resets every 15 minutes or so
@@ -204,22 +253,24 @@ class SwoleBot(object):
                 except ValueError as e:
                     print(e)
 
-            current_time = datetime.datetime.now()
-            current_hour = current_time.hour
-            time_elapsed = current_time - time_last_reminded
-            if 10 <= current_hour < 18 and time_elapsed >= datetime.timedelta(seconds=15):    
-                self.send_reminder()
-                time_last_reminded = current_time
+            if self.is_reminder_time():
+                    self.send_reminder()
+                    self.time_last_reminded = datetime.datetime.now()
             time.sleep(1)
 
 # blocks SwoleBot from running automatically when imported
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument("-i", "--interval", help="specify interval between bot reminders in seconds", default=3600,
+                        type=int)
+    args = parser.parse_args()
+    interval_time = args.interval
     dotenv.load_dotenv(dotenv.find_dotenv())
     zulip_username = os.environ["SWOLEBOT_USR"]
     zulip_api_key = os.environ["SWOLEBOT_API"]
     key_word = "SwoleBot"
     subscribed_streams = [STREAM_NAME]
 
-    new_bot = SwoleBot(zulip_username, zulip_api_key, key_word, subscribed_streams)
+    new_bot = SwoleBot(zulip_username, zulip_api_key, key_word, subscribed_streams, interval_time)
     new_bot.main()
