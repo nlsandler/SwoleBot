@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import patch
 import datetime
+import pytz
 import swolebot
 import zulip
 
@@ -20,7 +21,7 @@ class SwoleBotTest(unittest.TestCase):
     def setUp(self):
         super().setUp()
         key_word = SWOLEBOT
-        subscribed_streams = [swolebot.STREAM_NAME]
+        subscribed_streams = [swolebot.TEST_STREAM_NAME]
         z = patch('zulip.Client')
         self.addCleanup(z.stop)
         z.start()
@@ -155,29 +156,34 @@ class SwoleBotTest(unittest.TestCase):
 
     """Reminder tests"""    
     def test_is_reminder_time_day_false(self):
-        fake_date = datetime.datetime(2017, 11, 12, 12) # A Saturday
+        fake_date = swolebot.RC_TIMEZONE.localize(datetime.datetime(2017, 11, 12, 12)) # A Saturday
+        fake_date = fake_date.astimezone(pytz.utc)
         with patch('datetime.datetime') as mocked_datetime:
             mocked_datetime.now.return_value = fake_date
             is_time = self.bot.is_reminder_time()
             self.assertFalse(is_time)
 
     def test_is_reminder_time_hour_false(self):
-        fake_date = datetime.datetime(2017, 11, 14, 20) # A Monday at 8pm
+        fake_date = swolebot.RC_TIMEZONE.localize(datetime.datetime(2017, 11, 14, 20))
+        fake_date = fake_date.astimezone(pytz.utc) # A Monday at 8pm
         with patch('datetime.datetime') as mocked_datetime:
             mocked_datetime.now.return_value = fake_date
             is_time = self.bot.is_reminder_time()
             self.assertFalse(is_time)   
 
     def test_is_reminder_time_true(self):
-        fake_date = datetime.datetime(2017, 11, 14, 12) # A Monday at 12pm
+        fake_date = swolebot.RC_TIMEZONE.localize(datetime.datetime(2017, 11, 14, 12)) # A Monday at 12pm
+        fake_date = fake_date.astimezone(pytz.utc)
         with patch('datetime.datetime') as mocked_datetime:
             mocked_datetime.now.return_value = fake_date
             is_time = self.bot.is_reminder_time()
             self.assertTrue(is_time)
 
     def test_time_last_reminded_false(self):
-        fake_time_reminded = datetime.datetime(2017, 11, 14, 12) # A Monday at 12pm
-        fake_current_date = datetime.datetime(2017, 11, 14, 12, 30) # 30 minutes later
+        fake_time_reminded = swolebot.RC_TIMEZONE.localize(datetime.datetime(2017, 11, 14, 12)) # A Monday at 12pm
+        fake_time_reminded = fake_time_reminded.astimezone(pytz.utc)
+        fake_current_date = swolebot.RC_TIMEZONE.localize(datetime.datetime(2017, 11, 14, 12, 30)) # 30 minutes later
+        fake_current_date = fake_current_date.astimezone(pytz.utc)
         self.bot.time_last_reminded = fake_time_reminded
         with patch('datetime.datetime') as mocked_datetime:
             mocked_datetime.now.return_value = fake_current_date

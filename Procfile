@@ -1,1 +1,1 @@
-worker: python3 swolebot.py -i 15
+worker: python3 swolebot.py -s "455 Broadway"

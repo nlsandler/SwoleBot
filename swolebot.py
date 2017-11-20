@@ -13,7 +13,7 @@ import time
 import argparse
 import pytz
 
-STREAM_NAME = 'bot-test'
+TEST_STREAM_NAME = 'bot-test'
 SUBSCRIBER_LIST = 'subscribers.txt'
 
 FORM_VIDEOS = {
@@ -41,7 +41,7 @@ RC_TIMEZONE = pytz.timezone('US/Eastern')
 ## Load upon SwoleBot initialization if present
 class SwoleBot(object):
 
-    def __init__(self, zulip_username, zulip_api_key, key_word, subscribed_streams=[], reminder_interval=3600):
+    def __init__(self, zulip_username, zulip_api_key, key_word, subscribed_stream="", reminder_interval=3600):
         """
         Parameters:
         -----------
@@ -51,7 +51,7 @@ class SwoleBot(object):
             Key generated when bot is registered, used to authenticate
         key_word: string
             Word at beginning of message used to trigger bot response
-        subscribed_streams:
+        subscribed_stream:
             Streams in which bot listens for commands and posts exercise reminders
 
         """
@@ -59,7 +59,7 @@ class SwoleBot(object):
         self.api_key = zulip_api_key
         self.key_word = key_word.lower()
 
-        self.subscribed_streams = subscribed_streams
+        self.subscribed_stream = subscribed_stream
         self.client = zulip.Client(zulip_username, zulip_api_key, site="https://recurse.zulipchat.com/api")
         self.subscriptions = self.subscribe_to_streams()
         self.stream_names = []
@@ -89,7 +89,7 @@ class SwoleBot(object):
     @property
     def streams(self):
         """Standardizes a list of streams in the form [{"name": stream}]"""
-        streams = [{"name": stream} for stream in self.subscribed_streams]
+        streams = [{"name": stream} for stream in [self.subscribed_stream]]
         return streams
 
     def subscribe_to_streams(self):
@@ -204,7 +204,7 @@ class SwoleBot(object):
         """
         self.client.send_message({
             "type": "stream",
-            "to": STREAM_NAME,
+            "to": self.subscribed_stream,
             "subject": "exercise",
             "content": self.compose_message()
         })
@@ -269,8 +269,10 @@ if __name__ == "__main__":
 
     parser.add_argument("-i", "--interval", help="specify interval between bot reminders in seconds", default=3600,
                         type=int)
+    parser.add_argument("-s", "--stream", help="stream to subscribe/post reminders to", default=TEST_STREAM_NAME)
     args = parser.parse_args()
     interval_time = args.interval
+    subscribed_stream = args.stream
     dotenv.load_dotenv(dotenv.find_dotenv())
 
     zulip_username = None
@@ -282,8 +284,7 @@ if __name__ == "__main__":
         print("Environment variables not set")
 
     key_word = "SwoleBot"
-    subscribed_streams = [STREAM_NAME]
 
-    new_bot = SwoleBot(zulip_username, zulip_api_key, key_word, subscribed_streams, interval_time)
+    new_bot = SwoleBot(zulip_username, zulip_api_key, key_word, subscribed_stream, interval_time)
     print("Starting bot")
     new_bot.main()
