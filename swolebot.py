@@ -232,6 +232,7 @@ class SwoleBot(object):
 
         """
         queue_id = None
+        print("Starting main loop")
         while True:
             # queue_id resets every 15 minutes or so
             if queue_id == None:
@@ -267,10 +268,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     interval_time = args.interval
     dotenv.load_dotenv(dotenv.find_dotenv())
-    zulip_username = os.environ["SWOLEBOT_USR"]
-    zulip_api_key = os.environ["SWOLEBOT_API"]
+
+    zulip_username = None
+    zulip_api_key = None
+    try:
+        zulip_username = os.environ["SWOLEBOT_USR"]
+        zulip_api_key = os.environ["SWOLEBOT_API"]
+    except KeyError:
+        print("Environment variables not set")
+
     key_word = "SwoleBot"
     subscribed_streams = [STREAM_NAME]
 
     new_bot = SwoleBot(zulip_username, zulip_api_key, key_word, subscribed_streams, interval_time)
+    print("Starting bot")
     new_bot.main()
