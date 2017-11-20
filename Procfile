@@ -1,1 +1,1 @@
-worker: python3 swolebot.py
+worker: python3 swolebot.py -i 15
