@@ -11,6 +11,7 @@ import os
 import sys
 import time
 import argparse
+import pytz
 
 STREAM_NAME = 'bot-test'
 SUBSCRIBER_LIST = 'subscribers.txt'
@@ -32,6 +33,8 @@ RESPONSES = {
     "form": "Here you go. Exercise safely! ",
     "form_help": "Exercise not recognized. Enter one of: squat, pushup, plank"
 }
+
+RC_TIMEZONE = pytz.timezone('US/Eastern')
 
 # TO DO:
 ## Pickle list of subscribers
@@ -60,7 +63,7 @@ class SwoleBot(object):
         self.client = zulip.Client(zulip_username, zulip_api_key, site="https://recurse.zulipchat.com/api")
         self.subscriptions = self.subscribe_to_streams()
         self.stream_names = []
-        self.time_last_reminded = datetime.datetime(1970, 1, 1)
+        self.time_last_reminded = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
         self.reminder_interval = reminder_interval
         for stream in self.subscriptions:
             self.stream_names.append(stream["name"])
@@ -216,11 +219,12 @@ class SwoleBot(object):
         return message
 
     def is_reminder_time(self):
-        current_time = datetime.datetime.now()
-        current_hour = current_time.hour
+        current_time = datetime.datetime.now(pytz.utc)
+        localized_current_time = current_time.astimezone(RC_TIMEZONE)
+        current_hour = localized_current_time.hour
         time_elapsed = current_time - self.time_last_reminded
         if 10 <= current_hour < 18 and time_elapsed >= datetime.timedelta(seconds=self.reminder_interval):
-            if current_time.weekday() < 5:   # only deliver reminders Mon-Fri 
+            if localized_current_time.weekday() < 5:   # only deliver reminders Mon-Fri 
                 return True
         return False
 
@@ -256,7 +260,7 @@ class SwoleBot(object):
 
             if self.is_reminder_time():
                     self.send_reminder()
-                    self.time_last_reminded = datetime.datetime.now()
+                    self.time_last_reminded = datetime.datetime.now(pytz.utc)
             time.sleep(1)
 
 # blocks SwoleBot from running automatically when imported
